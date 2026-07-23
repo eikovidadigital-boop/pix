@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Gerador de Pix</title>
+<link rel="manifest" href="pix-manifest.json">
+<meta name="theme-color" content="#166534">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gerar Pix">
+<style>
+  :root{--verde:#166534;--verde2:#16a34a;--bg:#f4f4f2;--card:#fff;--borda:#e2e0dc;--txt:#222;--cinza:#777}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh}
+  header{background:var(--verde);color:#fff;padding:16px;text-align:center;font-weight:800;font-size:18px;position:sticky;top:0;z-index:5}
+  .wrap{max-width:460px;margin:0 auto;padding:16px}
+  .card{background:var(--card);border:1px solid var(--borda);border-radius:14px;padding:16px;margin-bottom:14px}
+  label{display:block;font-size:13px;font-weight:700;margin:10px 0 4px;color:#444}
+  input,select{width:100%;padding:13px;border:1px solid var(--borda);border-radius:10px;font-size:16px;background:#fff;color:var(--txt)}
+  input:focus,select:focus{outline:none;border-color:var(--verde2)}
+  .dica{font-size:11px;color:var(--cinza);margin-top:3px}
+  .btn{width:100%;padding:15px;border:none;border-radius:12px;font-size:17px;font-weight:800;cursor:pointer;margin-top:14px}
+  .btn-v{background:var(--verde);color:#fff}
+  .btn-o{background:#fff;color:var(--verde);border:2px solid var(--verde)}
+  .btn:active{transform:scale(.99)}
+  .valor{font-size:22px;font-weight:800;text-align:center}
+  #tela2{display:none}
+  .qrbox{display:flex;justify-content:center;padding:16px 0}
+  #qr{background:#fff;padding:12px;border-radius:12px}
+  .vv{font-size:30px;font-weight:800;color:var(--verde);text-align:center;margin:4px 0}
+  .cc{background:#f4f4f2;border:1px dashed var(--verde);border-radius:10px;padding:11px;font-size:11px;word-break:break-all;cursor:pointer;margin-top:6px}
+  .cc small{display:block;color:var(--verde);font-weight:800;margin-bottom:4px;font-size:11px}
+  .aviso{background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:10px;font-size:12px;color:#78350f;margin-top:10px}
+  .ok{background:#dcfce7;color:#166534;text-align:center;padding:10px;border-radius:8px;font-weight:700;font-size:13px;margin-top:8px;display:none}
+  .foot{text-align:center;font-size:11px;color:var(--cinza);padding:8px 0 24px}
+</style>
+</head>
+<body>
+<header>💸 Gerador de Pix</header>
+<div class="wrap">
+
+  <!-- TELA 1: configurar chave (fica salva no aparelho) -->
+  <div class="card" id="cfgCard">
+    <div style="font-weight:800;margin-bottom:2px">Minha chave Pix</div>
+    <div class="dica">Preencha uma vez. Fica salvo neste aparelho.</div>
+    <label>Tipo de chave</label>
+    <select id="tipo" onchange="dica()">
+      <option value="email">E-mail</option>
+      <option value="cpf">CPF</option>
+      <option value="cnpj">CNPJ</option>
+      <option value="celular">Celular</option>
+      <option value="aleatoria">Chave aleatória</option>
+    </select>
+    <label>Chave</label>
+    <input id="chave" placeholder="sua chave" autocomplete="off">
+    <div class="dica" id="dicaTxt">Digite seu e-mail cadastrado no banco.</div>
+    <label>Nome fantasia (da barraca)</label>
+    <input id="nome" placeholder="Ex: Lanches do João" maxlength="25" autocomplete="off">
+    <div class="dica">Nome que você quer mostrar. Obs.: alguns bancos mostram ao cliente o nome cadastrado na sua conta, não este.</div>
+    <label>Cidade</label>
+    <input id="cidade" placeholder="Ex: Recife" maxlength="15" autocomplete="off">
+    <button class="btn btn-v" onclick="salvar()">Salvar chave</button>
+    <div class="ok" id="okSalvo">Chave salva ✓</div>
+  </div>
+
+  <!-- TELA 1: gerar -->
+  <div class="card" id="gerarCard">
+    <label>Valor a cobrar</label>
+    <input id="valor" class="valor" inputmode="decimal" placeholder="R$ 0,00" oninput="mascara(this)">
+    <button class="btn btn-v" onclick="gerar()">📱 Gerar QR Code</button>
+    <button class="btn btn-o" onclick="gerar(true)">Gerar sem valor (cliente digita)</button>
+  </div>
+
+  <!-- TELA 2: QR gerado -->
+  <div class="card" id="tela2">
+    <div class="vv" id="vv"></div>
+    <div class="qrbox"><div id="qr"></div></div>
+    <div style="text-align:center;font-size:13px;color:#555">Aponte a câmera do banco do cliente</div>
+    <div class="cc" id="ccBox" onclick="copiar()"><small>👆 Toque para copiar o Pix Copia e Cola</small><span id="ccTxt"></span></div>
+    <div class="ok" id="okCopia">Código copiado ✓</div>
+    <button class="btn btn-v" onclick="voltar()">← Gerar outro</button>
+  </div>
+
+  <div class="foot">Funciona offline · Padrão Banco Central</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+/* ===== armazenamento local (fica no aparelho) ===== */
+var LS={
+  get:function(k,d){try{var v=localStorage.getItem("pix_"+k);return v===null?d:v;}catch(e){return d;}},
+  set:function(k,v){try{localStorage.setItem("pix_"+k,v);}catch(e){}}
+};
+function dicaTxt(t){return {email:"Digite seu e-mail cadastrado no banco.",cpf:"Digite o CPF (só números ou com pontos).",cnpj:"Digite o CNPJ (só números ou com pontos).",celular:"Digite com DDD. O app adiciona o +55.",aleatoria:"Cole a chave aleatória gerada pelo seu banco."}[t]||"";}
+function placeTxt(t){return {email:"nome@dominio.com",cpf:"000.000.000-00",cnpj:"00.000.000/0000-00",celular:"(00) 00000-0000",aleatoria:"cole a chave do banco"}[t]||"sua chave";}
+function dica(){var t=document.getElementById("tipo").value;document.getElementById("dicaTxt").textContent=dicaTxt(t);document.getElementById("chave").placeholder=placeTxt(t);}
+
+/* ===== normaliza e valida a chave conforme o tipo ===== */
+function normaliza(tipo,chave){
+  var raw=String(chave||"").trim(), dig=raw.replace(/\D/g,"");
+  if(tipo==="cpf")return dig.slice(0,11);
+  if(tipo==="cnpj")return dig.slice(0,14);
+  if(tipo==="celular"){var d=dig.replace(/^0+/,"");return "+55"+d.replace(/^55/,"").slice(0,11);}
+  if(tipo==="email")return raw.toLowerCase();
+  if(tipo==="aleatoria")return raw.toLowerCase();
+  return raw;
+}
+function valida(tipo,chave){
+  var c=normaliza(tipo,chave);
+  if(tipo==="cpf")return c.length===11;
+  if(tipo==="cnpj")return c.length===14;
+  if(tipo==="celular")return /^\+55\d{10,11}$/.test(c);
+  if(tipo==="email")return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c);
+  if(tipo==="aleatoria")return /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/.test(c);
+  return !!c;
+}
+
+/* ===== monta o BR Code (padrão EMV do Banco Central) ===== */
+function semAcento(s){return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^\x20-\x7E]/g,"").trim();}
+function emv(id,v){var s=String(v);return id+String(s.length).padStart(2,"0")+s;}
+function crc16(str){var crc=0xFFFF;for(var i=0;i<str.length;i++){crc^=str.charCodeAt(i)<<8;for(var j=0;j<8;j++){crc=(crc&0x8000)?((crc<<1)^0x1021):(crc<<1);crc&=0xFFFF;}}return crc.toString(16).toUpperCase().padStart(4,"0");}
+function brCode(chave,nome,cidade,valor){
+  var n=semAcento(nome).slice(0,25)||"LOJA";
+  var c=semAcento(cidade).slice(0,15).toUpperCase()||"BRASIL";
+  var mai=emv("00","BR.GOV.BCB.PIX")+emv("01",chave);
+  var val=(valor&&Number(valor)>0)?emv("54",Number(valor).toFixed(2)):"";
+  var adic=emv("62",emv("05","***"));
+  var payload=emv("00","01")+emv("26",mai)+emv("52","0000")+emv("53","986")+val+emv("58","BR")+emv("59",n)+emv("60",c)+adic+"6304";
+  return payload+crc16(payload);
+}
+
+/* ===== máscara de dinheiro ===== */
+function mascara(el){
+  var v=el.value.replace(/\D/g,"");
+  v=(Number(v)/100).toFixed(2);
+  el.value=v==="0.00"?"":"R$ "+v.replace(".",",").replace(/\B(?=(\d{3})+(?!\d))/g,".");
+}
+function valorNum(){var v=document.getElementById("valor").value.replace(/[^\d,]/g,"").replace(",",".");return parseFloat(v)||0;}
+
+/* ===== salvar chave ===== */
+function salvar(){
+  var tipo=document.getElementById("tipo").value;
+  var chaveBruta=document.getElementById("chave").value;
+  if(!chaveBruta.trim()){alert("Digite a chave Pix");return;}
+  if(!valida(tipo,chaveBruta)){alert("Chave de "+tipo+" inválida. Confira.");return;}
+  LS.set("tipo",tipo);
+  LS.set("chave",normaliza(tipo,chaveBruta));
+  LS.set("nome",document.getElementById("nome").value.trim());
+  LS.set("cidade",document.getElementById("cidade").value.trim());
+  var ok=document.getElementById("okSalvo");ok.style.display="block";setTimeout(function(){ok.style.display="none";},1800);
+}
+
+/* ===== gerar QR ===== */
+var codigoAtual="";
+function gerar(semValor){
+  var chave=LS.get("chave","");
+  if(!chave){alert("Primeiro salve sua chave Pix acima.");return;}
+  var valor=semValor?0:valorNum();
+  if(!semValor&&valor<=0){alert("Digite o valor a cobrar.");return;}
+  codigoAtual=brCode(chave,LS.get("nome","LOJA"),LS.get("cidade","BRASIL"),valor);
+  document.getElementById("vv").textContent=valor>0?("R$ "+valor.toFixed(2).replace(".",",")):"Valor livre";
+  document.getElementById("ccTxt").textContent=codigoAtual;
+  var qr=document.getElementById("qr");qr.innerHTML="";
+  if(window.QRCode)new QRCode(qr,{text:codigoAtual,width:240,height:240,colorDark:"#166534",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M});
+  else qr.textContent="(sem internet na 1ª vez, o QR não gera; abra online uma vez)";
+  document.getElementById("cfgCard").style.display="none";
+  document.getElementById("gerarCard").style.display="none";
+  document.getElementById("tela2").style.display="block";
+  window.scrollTo(0,0);
+}
+function voltar(){
+  document.getElementById("tela2").style.display="none";
+  document.getElementById("cfgCard").style.display="block";
+  document.getElementById("gerarCard").style.display="block";
+  document.getElementById("valor").value="";
+  document.getElementById("valor").focus();
+}
+function copiar(){
+  var t=codigoAtual;
+  function feito(){var o=document.getElementById("okCopia");o.style.display="block";setTimeout(function(){o.style.display="none";},1800);}
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(feito).catch(fallback);}
+  else fallback();
+  function fallback(){var ta=document.createElement("textarea");ta.value=t;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();try{document.execCommand("copy");feito();}catch(e){}document.body.removeChild(ta);}
+}
+
+/* ===== carrega o que estava salvo ===== */
+(function(){
+  document.getElementById("tipo").value=LS.get("tipo","email");
+  document.getElementById("chave").value=LS.get("chave","");
+  document.getElementById("nome").value=LS.get("nome","");
+  document.getElementById("cidade").value=LS.get("cidade","");
+  dica();
+})();
+
+/* ===== instalável (PWA) + offline ===== */
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.register("pix-sw.js").catch(function(){});
+}
+var deferredPrompt=null;
+window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();deferredPrompt=e;mostrarInstalar();});
+function mostrarInstalar(){
+  if(document.getElementById("btnInstalar"))return;
+  var b=document.createElement("button");
+  b.id="btnInstalar";b.className="btn btn-o";b.textContent="\u2b07\ufe0f Instalar como app";
+  b.style.margin="0 16px 16px";b.style.width="calc(100% - 32px)";
+  b.onclick=function(){if(deferredPrompt){deferredPrompt.prompt();deferredPrompt.userChoice.then(function(){deferredPrompt=null;b.remove();});}};
+  document.querySelector(".wrap").appendChild(b);
+}
+window.addEventListener("appinstalled",function(){var b=document.getElementById("btnInstalar");if(b)b.remove();});
+</script>
+</body>
+</html>
